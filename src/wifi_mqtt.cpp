@@ -69,8 +69,7 @@ void publishSensorData(){
     doc["pf"] = sensordata.pf;
     //gui mqtt
     char buffer[256];
-    serializeJson(doc, buffer);
-
+    serializeJson(doc, buffer); //Biến doc thành dạng chuỗi json
     Serial.println("JSON gửi đi: ");
     Serial.println(buffer);
     client.publish("home/sensors/data", buffer);
