@@ -1,18 +1,18 @@
 #include "tft_display.h"
 
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_SDA, TFT_SCL, TFT_RST);
-
+//Lưu giá trị cũ tránh ghi đè màn hình
 static float lastTemp = -999, lastHumi = -999;
 static float lastEnergy = -999, lastPower = -999;
 static bool lastRain = false;
 static int lastServo = -1;
 
-// ======================= KHỞI TẠO =======================
+// ======================= KHỞI TẠO MÀN TFT=======================
 void initDisplay() {
   tft.initR(INITR_BLACKTAB);
   tft.setRotation(2); // Xoay 90 độ để chữ nằm ngang
   tft.fillScreen(ST77XX_BLACK);
-
+  // Tiêu đề 
   tft.setTextColor(ST77XX_YELLOW);
   tft.setTextSize(2);
   tft.setCursor(10, 5);
@@ -20,7 +20,7 @@ void initDisplay() {
 
   tft.drawFastHLine(0, 25, tft.width(), ST77XX_GREEN);
   tft.setTextSize(1);
-  //Chọn vị trí đặt tên dữ liệu Temp,humi,...
+  //Nhãn cố định
   tft.setCursor(5, 30);  tft.print("Temp:");
   tft.setCursor(5, 50);  tft.print("Humi:");
   tft.setCursor(5, 70);  tft.print("Power:");
@@ -30,7 +30,9 @@ void initDisplay() {
   tft.setCursor(5, 150); tft.printf("Water S:");
 }
 
-// ======================= CẬP NHẬT DHT =======================
+//===================================================================
+//Chỉ cập nhật khi thay đổi giá trị đủ lớn và giới hạn tần số 2000ms
+//====================================================================
 void displayDHT(float temp, float humi) {
   static unsigned long lastUpdate = 0;
   if( millis()- lastUpdate < 2000) return ; // làm chậm thời gian cập nhật lên màn 
@@ -47,7 +49,9 @@ void displayDHT(float temp, float humi) {
   }
 }
 
-// ======================= CẬP NHẬT PZEM =======================
+// =============================================================
+// Cập nhật công suất & điện năng( chỉ khi có thay đổi đáng kể)
+//==============================================================
 void displayPZEM(float energy, float power) {
   if (fabs(energy - lastEnergy) > 0.1 || fabs(power - lastPower) > 1.0) {
     tft.fillRect(70, 70, 80, 40, ST77XX_BLACK);
@@ -62,12 +66,15 @@ void displayPZEM(float energy, float power) {
   }
 }
 
-// ======================= CẬP NHẬT TRẠNG THÁI =======================
+// ======================================================================
+// Hiển thị trạng thái thời tiết & giàn phơi (Chỉ in khi thực sự thay đổi)
+//========================================================================
 void displayStatus(bool isRaining, int servoPos, bool rainSensorEnabled) {
   static bool lastRainShown = !isRaining;  // ép khác để lần đầu in ra
   static int lastServoShown = -1;
   static bool lastSensorShown = !rainSensorEnabled;
   static int lastServoMode = -1;  // 0: DRYING, 1: RETRACT
+  // Trạng thái mưa
   if (isRaining != lastRainShown) {
     tft.fillRect(70, 110, 50, 10, ST77XX_BLACK);
     tft.setCursor(70, 110);
@@ -88,7 +95,7 @@ void displayStatus(bool isRaining, int servoPos, bool rainSensorEnabled) {
     tft.print(currentMode == 1 ? "RETRACT" : "DRYING");
     lastServoMode = currentMode;
   }
-  //Water sensor on hoac off
+  // Cảm biến mưa Bật/Tắt
   if (rainSensorEnabled != lastSensorShown) {
         tft.fillRect(70, 150, 50, 10, ST77XX_BLACK);
         tft.setCursor(70, 150);
