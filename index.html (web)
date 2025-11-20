@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Home Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.2.96/css/materialdesignicons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FIREBASE -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    :root {
+      --primary: #6a1b9a;
+      --primary-light: #9c4dcc;
+      --bg: #f8f9fc;
+      --card-bg: #ffffff;
+      --text: #2d3748;
+      --text-light: #718096;
+      --border: #e2e8f0;
+      --success: #48bb78;
+      --danger: #f56565;
+      --shadow: 0 10px 25px rgba(0,0,0,0.08);
+      --gauge-bg: #e2e8f0;
+      --gauge-fill: #6a1b9a;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+      font-size: 14px;
+    }
+    /* LOGIN */
+    #loginScreen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg, #6a1b9a, #9c4dcc);
+      display: flex; justify-content: center; align-items: center; z-index: 999;
+    }
+    .login-card {
+      background: white; padding: 40px 50px; border-radius: 24px; width: 420px;
+      text-align: center; box-shadow: 0 20px 40px rgba(106,27,154,0.3);
+    }
+    .login-card h2 { color: var(--primary); font-size: 28px; font-weight: 700; margin-bottom: 10px; }
+    .login-card p { color: var(--text-light); margin-bottom: 30px; }
+    .login-input {
+      width: 100%; padding: 16px 20px; margin: 12px 0; border: 1.5px solid #e2e8f0;
+      border-radius: 16px; font-size: 15px; outline: none; transition: 0.3s;
+    }
+    .login-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(106,27,154,0.1); }
+    .login-btn {
+      width: 100%; padding: 16px; background: var(--primary); color: white;
+      border: none; border-radius: 16px; font-size: 16px; font-weight: 600;
+      cursor: pointer; margin-top: 10px; transition: 0.3s;
+    }
+    .login-btn:hover { background: var(--primary-light); }
+    .error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; display: none; }
+    /* DASHBOARD */
+    #dashboard { display: none; }
+    /* Sidebar */
+    .sidebar {
+      width: 280px; background: var(--primary); color: white; padding: 30px 20px;
+      position: fixed; height: 100%; overflow-y: auto; z-Index: 10; box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+    }
+    .logo { text-align: center; margin-bottom: 50px; }
+    .logo i { font-size: 36px; margin-bottom: 8px; display: block; }
+    .logo span { font-size: 22px; font-weight: 700; }
+    .nav-item {
+      padding: 14px 18px; margin: 6px 0; border-radius: 16px; cursor: pointer;
+      transition: 0.3s; display: flex; align-items: center; gap: 14px; font-size: 15px; font-weight: 500;
+    }
+    .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.15); }
+    .nav-item i { width: 22px; text-align: center; font-size: 18px; }
+    .logout { margin-top: auto; padding-top: 40px; }
+    /* Main */
+    .main { margin-left: 280px; flex: 1; padding: 30px; }
+    .header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;
+      background: white; padding: 18px 28px; border-radius: 20px; box-shadow: var(--shadow);
+    }
+    .greeting { font-size: 22px; font-weight: 700; }
+    .search-bar {
+      display: flex; align-items: center; background: #f7fafc; border-radius: 30px;
+      padding: 10px 18px; width: 320px; border: 1.5px solid #e2e8f0;
+    }
+    .search-bar input { border: none; background: none; outline: none; margin-left: 12px; width: 100%; font-size: 14px; }
+    .user-profile { display: flex; align-items: center; gap: 12px; font-weight: 600; }
+    .user-profile img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+    /* Room Tabs */
+    .room-tabs { display: flex; gap: 12px; margin-bottom: 25px; overflow-x: auto; padding-bottom: 8px; }
+    .tab {
+      padding: 10px 22px; background: white; border-radius: 30px; white-space: nowrap;
+      font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.3s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .tab.active { background: var(--primary); color: white; }
+    /* Grid */
+    .grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); 
+      gap: 24px; 
+    }
+    /* Card */
+    .card {
+      background: var(--card-bg); border-radius: 20px; padding: 20px; box-shadow: var(--shadow);
+      transition: transform 0.2s;
+    }
+    .card:hover { transform: translateY(-6px); }
+    .card-header {
+      font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .card-header i { color: var(--text-light); cursor: pointer; }
+    /* Live View */
+    .live-view { position: relative; }
+    .live-view img { width: 100%; height: 220px; object-fit: cover; border-radius: 16px; }
+    .live-dot {
+      position: absolute; top: 12px; right: 12px; width: 12px; height: 12px; border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    .live-dot.online { background: var(--success); animation: pulse-green 1.5s infinite; }
+    .live-dot.offline { background: var(--danger); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(245,101,101,0.7); } 70% { box-shadow: 0 0 0 12px rgba(245,101,101,0); } 100% { box-shadow: 0 0 0 0 rgba(245,101,101,0); } }
+    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(72,187,120,0.7); } 70% { box-shadow: 0 0 0 12px rgba(72,187,120,0); } 100% { box-shadow: 0 0 0 0 rgba(72,187,120,0); } }
+
+    /* THỜI TIẾT */
+    .weather-alert-card {
+      text-align: center;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .weather-content { margin-top: 12px; }
+    .weather-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 16px;
+      position: relative;
+    }
+    .weather-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+    }
+    .weather-icon.thunder img {
+      animation: flash 2s infinite;
+    }
+    .weather-icon.sun img {
+      animation: shine 3s infinite;
+    }
+    @keyframes flash {
+      0%, 100% { opacity: 1; filter: drop-shadow(0 0 10px #ffd700); }
+      50% { opacity: 0.7; filter: drop-shadow(0 0 20px #ffeb3b); }
+    }
+    @keyframes shine {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px #ffeb3b); }
+      50% { transform: scale(1.05); filter: drop-shadow(0 0 20px #ffd700); }
+    }
+    .weather-status {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .weather-temp {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--primary);
+      font-style: italic;
+    }
+
+    /* Điều khiển */
+    .accessory-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px;
+    }
+    .accessory-item {
+      background: #f8f9fa; border-radius: 16px; padding: 22px; text-align: center;
+      transition: 0.3s; cursor: default;
+    }
+    .accessory-item.on {
+      background: rgba(106, 27, 154, 0.1); border: 1.5px solid var(--primary);
+    }
+    .accessory-item.power-on {
+      background: rgba(72, 187, 120, 0.1); border: 1.5px solid var(--success);
+    }
+    .accessory-item.power-off {
+      background: rgba(245, 101, 101, 0.1); border: 1.5px solid var(--danger);
+    }
+    .accessory-item i {
+      font-size: 34px; margin-bottom: 12px; display: block;
+    }
+    .accessory-item .name {
+      font-size: 14px; font-weight: 600; margin-bottom: 6px;
+    }
+    .accessory-item .status {
+      font-size: 12px; color: var(--text-light);
+    }
+    /* Toggle Switch */
+    .switch {
+      position: relative; display: inline-block; width: 48px; height: 28px; margin-top: 8px;
+    }
+    .switch input { display:none; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #cbd5e0; transition: .4s; border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px;
+      background-color: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--success); }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* THÔNG TIN */
+    .ac-card {
+      text-align: center; padding: 32px 20px;
+    }
+    .ac-modes {
+      display: flex; justify-content: center; gap: 28px; margin-top: 24px;
+    }
+    .ac-mode {
+      width: 60px; height: 60px; border-radius: 50%; background: #f1f5f9;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; 
+      font-size: 30px; transition: all 0.3s ease; color: var(--text-light);
+    }
+    .ac-mode.active { background: var(--primary); color: white; transform: scale(1.1); }
+    .gauge-container {
+      position: relative; width: 180px; height: 180px; margin: 0 auto 32px;
+    }
+    .gauge {
+      width: 100%; height: 100%; transform: rotate(-90deg);
+    }
+    .gauge-bg { fill: none; stroke: var(--gauge-bg); stroke-width: 16; }
+    .gauge-fill { fill: none; stroke: var(--gauge-fill); stroke-width: 16; stroke-linecap: round; stroke-dasharray: 490; stroke-dashoffset: 490; transition: stroke-dashoffset 0.8s ease; }
+    .gauge-value {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 40px; font-weight: 800; color: #5a189a;
+      font-style: italic; line-height: 1; text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+      opacity: 0; transform: translate(-50%, -50%) scale(0.8);
+      transition: all 0.3s ease;
+    }
+    .gauge-value.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .gauge-value sup { font-size: 24px; font-weight: 700; position: relative; top: -12px; margin-left: 2px; font-style: normal; }
+    .gauge-label {
+      position: absolute; top: 72%; left: 50%; transform: translateX(-50%);
+      font-size: 14px; color: #94a3b8; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      opacity: 0; transition: opacity 0.3s ease 0.2s;
+    }
+    .gauge-label.show { opacity: 1; }
+
+    /* Power Chart */
+    .chart-controls {
+      display: flex; justify-content: space-between; margin-bottom: 8px;
+    }
+    .chart-controls select {
+      padding: 6px 10px; border-radius: 12px; border: 1.5px solid var(--border); font-size: 13px;
+    }
+    /* Nhật ký */
+    .log-container {
+      max-height: 180px; overflow-y: auto; padding-right: 8px;
+    }
+    .log-entry {
+      padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 13px; color: var(--text-light);
+    }
+    .log-entry:last-child { border-bottom: none; }
+    /* Power Details */
+    .power-details {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    }
+    .power-item {
+      background: #f8f9fa; border-radius: 16px; padding: 14px; text-align: center;
+    }
+    .power-item i { font-size: 24px; margin-bottom: 6px; display: block; }
+    .power-item .label { font-size: 12px; color: var(--text-light); }
+    .power-item .value { font-size: 16px; font-weight: 700; }
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .sidebar { width: 80px; padding: 20px 10px; }
+      .sidebar .nav-text, .logo span, .logout { display: none; }
+      .main { margin-left: 80px; }
+      .search-bar { width: 220px; }
+    }
+    @media (max-width: 768px) {
+      .header { flex-direction: column; gap: 16px; align-items: stretch; }
+      .search-bar { width: 100%; }
+      .grid { grid-template-columns: 1fr; }
+      .accessory-grid, .power-details { grid-template-columns: 1fr; }
+      .live-view, .weather-alert-card { grid-column: span 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <!-- LOGIN -->
+  <div id="loginScreen">
+    <div class="login-card">
+      <h2>SmartHome</h2>
+      <p>Đăng nhập để tiếp tục</p>
+      <input type="text" id="username" class="login-input" placeholder="Tên đăng nhập">
+      <input type="password" id="password" class="login-input" placeholder="Mật khẩu">
+      <button class="login-btn" onclick="handleLogin()">Đăng Nhập</button>
+      <div id="errorMsg" class="error-msg">Sai tên đăng nhập hoặc mật khẩu!</div>
+    </div>
+  </div>
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="logo">
+        <i class="mdi mdi-home-analytics"></i>
+        <span>SmartHome</span>
+      </div>
+      <div class="nav-item active"><i class="mdi mdi-view-dashboard"></i><span class="nav-text">Tổng quan</span></div>
+      <div class="nav-item"><i class="mdi mdi-chart-line"></i><span class="nav-text">Thống kê</span></div>
+      <div class="nav-item"><i class="mdi mdi-account-group"></i><span class="nav-text">Thành viên</span></div>
+      <div class="nav-item"><i class="mdi mdi-credit-card"></i><span class="nav-text">Thanh toán</span></div>
+      <div class="nav-item"><i class="mdi mdi-security"></i><span class="nav-text">Bảo mật</span></div>
+      <div class="nav-item"><i class="mdi mdi-cog"></i><span class="nav-text">Cài đặt</span></div>
+      <div class="nav-item logout" onclick="handleLogout()"><i class="mdi mdi-logout"></i><span class="nav-text">Đăng xuất</span></div>
+    </div>
+    <!-- Main -->
+    <div class="main">
+      <div class="header">
+        <div class="greeting">Chào buổi sáng!</div>
+        <div class="search-bar">
+          <i class="fas fa-search"></i>
+          <input type="text" placeholder="Tìm kiếm...">
+        </div>
+        <div class="user-profile">
+          <i class="mdi mdi-bell-outline"></i>
+          <i class="mdi mdi-email-outline"></i>
+          <span>Hareza</span>
+          <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="User">
+        </div>
+      </div>
+      <div class="room-tabs">
+        <div class="tab active">Phòng khách</div>
+        <div class="tab">Phòng ngủ</div>
+        <div class="tab">Nhà bếp</div>
+        <div class="tab">Hành lang</div>
+        <div class="tab">Phòng làm việc</div>
+      </div>
+      <div class="grid">
+        <!-- Live View -->
+        <div class="card live-view" style="grid-column: span 1;">
+          <div class="card-header">Trực tiếp <span class="live-dot online" id="liveStatus"></span></div>
+          <img src="https://images.unsplash.com/photo-1600210492493-0946911123ea?w=800&auto=format&fit=crop" alt="Phòng khách">
+        </div>
+        <!-- Thời tiết -->
+        <div class="card weather-alert-card">
+          <div class="card-header">Thời tiết</div>
+          <div class="weather-content">
+            <div class="weather-icon" id="weatherIcon">
+              <!-- Icon sẽ được cập nhật realtime -->
+            </div>
+            <div class="weather-status" id="weatherStatus">Đang tải...</div>
+            <div class="weather-temp">0.0°</div>
+          </div>
+        </div>
+        <!-- Điều khiển -->
+        <div class="card">
+          <div class="card-header">Điều khiển <i class="fas fa-ellipsis-h"></i></div>
+          <div class="accessory-grid">
+            <div class="accessory-item power-on" id="powerStatusItem">
+              <i class="mdi mdi-home-lightning-bolt-outline" style="color: #48bb78;"></i>
+              <div class="name">Điện gia đình</div>
+              <div class="status">Có điện</div>
+            </div>
+            <div class="accessory-item on">
+              <i class="mdi mdi-run-fast" style="color: #6a1b9a;"></i>
+              <div class="name">PIR</div>
+              <div class="status">Phát hiện chuyển động</div>
+              <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+            <div class="accessory-item on">
+              <i class="mdi mdi-weather-pouring" style="color: #3182ce;"></i>
+              <div class="name">Mưa</div>
+              <div class="status">Tự động thu khi mưa</div>
+              <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+            <div class="accessory-item on">
+              <i class="mdi mdi-hanger" style="color: #dd6b20;"></i>
+              <div class="name">Phơi</div>
+              <div class="status">Tự động thu giàn</div>
+              <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+        <!-- THÔNG TIN -->
+        <div class="card ac-card">
+          <div class="card-header">Thông tin</div>
+          <div class="gauge-container">
+            <svg class="gauge">
+              <circle class="gauge-bg" cx="90" cy="90" r="78"></circle>
+              <circle class="gauge-fill" cx="90" cy="90" r="78" id="acGauge"></circle>
+            </svg>
+            <div class="gauge-value" id="acValue">0<sup>W</sup></div>
+            <div class="gauge-label" id="acLabel">Công suất</div>
+          </div>
+          <div class="ac-modes">
+            <div class="ac-mode" onclick="switchMode(0)"><i class="mdi mdi-water-percent"></i></div>
+            <div class="ac-mode active" onclick="switchMode(1)"><i class="mdi mdi-flash"></i></div>
+            <div class="ac-mode" onclick="switchMode(2)"><i class="mdi mdi-battery-charging"></i></div>
+          </div>
+        </div>
+        <!-- Các card khác -->
+        <div class="card" style="grid-column: span 2; padding: 24px;">
+          <div class="card-header">Thông số & Tiêu thụ điện</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 16px;">
+            <div>
+              <div class="chart-controls" style="margin-bottom: 8px;">
+                <select id="viewModeSelect"><option value="overview">Tổng quan</option><option value="monthly">Theo tháng</option></select>
+                <select id="monthSelect"></select>
+              </div>
+              <div style="height: 160px;"><canvas id="powerChart"></canvas></div>
+            </div>
+            <div class="power-details">
+              <div class="power-item">
+                <i class="mdi mdi-lightning-bolt" style="color: #f56565;"></i>
+                <div class="label">Điện áp</div>
+                <div class="value" id="voltageValue">0 V</div>
+              </div>
+              <div class="power-item">
+                <i class="mdi mdi-current-ac" style="color: #3182ce;"></i>
+                <div class="label">Dòng điện</div>
+                <div class="value" id="currentValue">0 A</div>
+              </div>
+              <div class="power-item">
+                <i class="mdi mdi-sine-wave" style="color: #6a1b9a;"></i>
+                <div class="label">Tần số</div>
+                <div class="value" id="frequencyValue">0 Hz</div>
+              </div>
+              <div class="power-item">
+                <i class="mdi mdi-gauge" style="color: #dd6b20;"></i>
+                <div class="label">Hệ số PF</div>
+                <div class="value" id="pfValue">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- BIỂU ĐỒ NHIỆT ĐỘ & ĐỘ ẨM -->
+        <div class="card chart-card" style="grid-column: span 2;">
+          <div class="card-header">
+            Nhiệt độ & Độ ẩm
+            <select id="tempViewMode" style="margin-left: auto; font-size: 13px; padding: 4px 8px; border-radius: 8px;">
+              <option value="realtime">Realtime</option>
+              <option value="24hours">24 giờ</option>
+            </select>
+          </div>
+          <div style="height: 180px;"><canvas id="tempHumidityChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header">Nhật ký</div>
+          <div class="log-container">
+            <div class="log-entry">Đang tải dữ liệu...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === CẤU HÌNH FIREBASE ===
+    const firebaseConfig = {
+      databaseURL: "https://smarthomevn-ed184-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // === BIẾN TOÀN CỤC ===
+    let lastDataTime = Date.now();
+    const LIVE_TIMEOUT = 6000;
+    let currentTemp = 0;
+    let isRaining = false;
+
+    // GAUGE BIẾN
+    let currentMode = 1;
+    const GAUGE_CIRCUMFERENCE = 490;
+    const gaugeFill = document.getElementById('acGauge');
+    const gaugeValue = document.getElementById('acValue');
+    const gaugeLabel = document.getElementById('acLabel');
+
+    // BIỂU ĐỒ
+    let powerChart, tempHumidityChart;
+
+    // === CARD TRỰC TIẾP ===
+    function updateLiveStatus() {
+      const now = Date.now();
+      const status = document.getElementById('liveStatus');
+      if (now - lastDataTime > LIVE_TIMEOUT) {
+        status.classList.remove('online');
+        status.classList.add('offline');
+      } else {
+        status.classList.remove('offline');
+        status.classList.add('online');
+      }
+    }
+
+    // === CARD THỜI TIẾT ===
+    function updateWeatherCard(temp, raining) {
+      const tempEl = document.querySelector('.weather-temp');
+      const statusEl = document.getElementById('weatherStatus');
+      const iconEl = document.getElementById('weatherIcon');
+
+      tempEl.textContent = temp.toFixed(1) + '°';
+
+      if (raining) {
+        iconEl.innerHTML = `<img src="https://cdn-icons-png.flaticon.com/512/8907/8907538.png" alt="Mưa giông">`;
+        iconEl.className = 'weather-icon thunder';
+        statusEl.textContent = 'Đang mưa';
+        statusEl.style.color = '#64748b';
+      } else {
+        iconEl.innerHTML = `<img src="https://cdn-icons-png.flaticon.com/512/4814/4814268.png" alt="Nắng đẹp">`;
+        iconEl.className = 'weather-icon sun';
+        statusEl.textContent = 'Khô ráo';
+        statusEl.style.color = '#f59e0b';
+      }
+    }
+
+    // === CẬP NHẬT GAUGE ===
+    function updateGauge(value, max, unit, label) {
+      const percent = Math.min(value / max, 1);
+      const offset = GAUGE_CIRCUMFERENCE * (1 - percent);
+      gaugeFill.style.strokeDashoffset = offset;
+
+      gaugeValue.innerHTML = `${value.toFixed(1)}<sup>${unit}</sup>`;
+      gaugeLabel.textContent = label;
+
+      gaugeValue.classList.remove('show');
+      gaugeLabel.classList.remove('show');
+      setTimeout(() => {
+        gaugeValue.classList.add('show');
+        gaugeLabel.classList.add('show');
+      }, 100);
+    }
+
+    // === CHUYỂN CHẾ ĐỘ GAUGE ===
+    function switchMode(mode) {
+      currentMode = mode;
+      const modes = document.querySelectorAll('.ac-mode');
+      modes.forEach((m, i) => m.classList.toggle('active', i === mode));
+      updateGaugeFromFirebase();
+    }
+
+    // === CẬP NHẬT GAUGE TỪ FIREBASE ===
+    function updateGaugeFromFirebase() {
+      db.ref('/sensors').once('value', (snapshot) => {
+        const data = snapshot.val() || {};
+        const power = data.power ?? 0;
+        const humidity = data.humidity ?? 0;
+        const energy = data.energy ?? 0;
+
+        if (currentMode === 0) {
+          updateGauge(humidity, 100, '%', 'Độ ẩm');
+        } else if (currentMode === 1) {
+          updateGauge(power, 2000, 'W', 'Công suất');
+        } else if (currentMode === 2) {
+          updateGauge(energy, 100, 'kWh', 'Năng lượng');
+        }
+      });
+    }
+
+    // === CẬP NHẬT THÔNG SỐ ĐIỆN ===
+    function updatePowerDetails() {
+      db.ref('/sensors').once('value', (snapshot) => {
+        const data = snapshot.val() || {};
+        document.getElementById('voltageValue').textContent = (data.voltage ?? 0).toFixed(1) + ' V';
+        document.getElementById('currentValue').textContent = (data.current ?? 0).toFixed(2) + ' A';
+        document.getElementById('frequencyValue').textContent = (data.frequency ?? 0).toFixed(1) + ' Hz';
+        document.getElementById('pfValue').textContent = (data.pf ?? 0).toFixed(2);
+      });
+    }
+
+    // === HỖ TRỢ: LẤY NGÀY ĐẦU THÁNG ===
+    function getMonthStart(year, month) {
+      return new Date(year, month - 1, 1).getTime();
+    }
+
+    // === HỖ TRỢ: TÌM ENERGY GẦN NHẤT TRƯỚC HOẶC SAU ===
+    function findEnergyAtOrBefore(entries, timestamp) {
+      let result = null;
+      entries.forEach(e => {
+        if (e.timestamp <= timestamp && (!result || e.timestamp > result.timestamp)) {
+          result = e;
+        }
+      });
+      return result;
+    }
+
+    function findEnergyAtOrAfter(entries, timestamp) {
+      let result = null;
+      entries.forEach(e => {
+        if (e.timestamp >= timestamp && (!result || e.timestamp < result.timestamp)) {
+          result = e;
+        }
+      });
+      return result;
+    }
+
+    // === KHỞI TẠO BIỂU ĐỒ ĐIỆN NĂNG (CHỈ 4 THÁNG) ===
+    function initPowerChart() {
+      const ctx = document.getElementById('powerChart').getContext('2d');
+      powerChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [{ data: [], borderColor: '#6a1b9a', fill: true, tension: 0.3 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'kWh' } },
+            x: { title: { display: true, text: 'Tháng' } }
+          }
+        }
+      });
+
+      const monthSelect = document.getElementById('monthSelect');
+      const today = new Date();
+      for (let i = 3; i >= 0; i--) {
+        const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const month = date.getMonth() + 1;
+        const year = date.getFullYear();
+        const option = document.createElement('option');
+        option.value = `${year}-${month.toString().padStart(2, '0')}`;
+        option.textContent = `Tháng ${month}/${year}`;
+        if (i === 0) option.selected = true;
+        monthSelect.appendChild(option);
+      }
+
+      document.getElementById('viewModeSelect').onchange = loadPowerChart;
+      monthSelect.onchange = loadPowerChart;
+
+      loadPowerChart();
+    }
+
+    // === TẢI DỮ LIỆU BIỂU ĐỒ ĐIỆN NĂNG ===
+    function loadPowerChart() {
+      const viewMode = document.getElementById('viewModeSelect').value;
+      const monthYear = document.getElementById('monthSelect').value;
+
+      if (viewMode === 'overview') {
+        loadOverviewChart();
+      } else {
+        loadMonthlyChart(monthYear);
+      }
+    }
+
+    // === TỔNG QUAN 4 THÁNG ===
+    function loadOverviewChart() {
+      const today = new Date();
+      const labels = [];
+      const months = [];
+
+      for (let i = 3; i >= 0; i--) {
+        const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        labels.push(`Tháng ${month}`);
+        months.push({ year, month });
+      }
+
+      db.ref('/history/sensors').once('value', (snapshot) => {
+        const entries = [];
+        snapshot.forEach(child => {
+          const val = child.val();
+          if (val.timestamp && val.energy != null) {
+            entries.push({ timestamp: val.timestamp, energy: val.energy });
+          }
+        });
+        entries.sort((a, b) => a.timestamp - b.timestamp);
+
+        const consumptions = [];
+        const now = Date.now();
+
+        months.forEach((m, idx) => {
+          const startTime = getMonthStart(m.year, m.month);
+          const endTime = new Date(m.year, m.month, 0, 23, 59, 59).getTime();
+
+          let energyStart = entries[0];
+          for (const e of entries) {
+            if (e.timestamp <= startTime && e.timestamp > (energyStart?.timestamp || 0)) {
+              energyStart = e;
+            }
+          }
+
+          let energyEnd = null;
+
+          if (idx === 0) {
+            energyEnd = findEnergyAtOrBefore(entries, now);
+          } else {
+            energyEnd = findEnergyAtOrAfter(entries, endTime) || findEnergyAtOrBefore(entries, endTime);
+          }
+
+          let consumption = 0;
+          if (energyStart && energyEnd && energyEnd.energy >= energyStart.energy) {
+            consumption = energyEnd.energy - energyStart.energy;
+          } else if (energyEnd && !energyStart) {
+            consumption = energyEnd.energy;
+          }
+
+          consumptions[idx] = parseFloat(consumption.toFixed(3));
+        });
+
+        powerChart.data.labels = labels;
+        powerChart.data.datasets[0].data = consumptions;
+        powerChart.options.scales.x.title.text = 'Tháng';
+        powerChart.update();
+      });
+    }
+
+    // === THEO THÁNG: CHIA 5 NGÀY/ĐIỂM ===
+    function loadMonthlyChart(monthYear) {
+      const [year, month] = monthYear.split('-').map(Number);
+      const today = new Date();
+      const isCurrentMonth = (today.getFullYear() === year && today.getMonth() + 1 === month);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const points = Math.ceil(daysInMonth / 5);
+      const labels = [];
+      const consumptions = [];
+
+      for (let i = 0; i < points; i++) {
+        const day = i * 5 + 1;
+        if (isCurrentMonth && day > today.getDate()) break;
+        labels.push(`Ngày ${day}`);
+        consumptions.push(0);
+      }
+
+      db.ref('/history/sensors').once('value', (snapshot) => {
+        const entries = [];
+        snapshot.forEach(child => {
+          const val = child.val();
+          if (val.timestamp && val.energy != null) {
+            const date = new Date(val.timestamp);
+            if (date.getFullYear() === year && date.getMonth() + 1 === month) {
+              entries.push({ timestamp: val.timestamp, energy: val.energy });
+            }
+          }
+        });
+        entries.sort((a, b) => a.timestamp - b.timestamp);
+
+        const now = Date.now();
+
+        for (let i = 0; i < labels.length; i++) {
+          const periodStart = new Date(year, month - 1, i * 5 + 1).getTime();
+          const periodEnd = new Date(year, month - 1, (i + 1) * 5, 23, 59, 59).getTime();
+
+          let energyStart = entries[0];
+          for (const e of entries) {
+            if (e.timestamp <= periodStart && e.timestamp > (energyStart?.timestamp || 0)) {
+              energyStart = e;
+            }
+          }
+
+          let energyEnd = null;
+
+          if (i === labels.length - 1 && isCurrentMonth) {
+            energyEnd = findEnergyAtOrBefore(entries, now);
+          } else {
+            energyEnd = findEnergyAtOrAfter(entries, periodEnd) || findEnergyAtOrBefore(entries, periodEnd);
+          }
+
+          let consumption = 0;
+          if (energyStart && energyEnd && energyEnd.energy >= energyStart.energy) {
+            consumption = energyEnd.energy - energyStart.energy;
+          }
+
+          consumptions[i] = parseFloat(consumption.toFixed(3));
+        }
+
+        powerChart.data.labels = labels;
+        powerChart.data.datasets[0].data = consumptions;
+        powerChart.options.scales.x.title.text = 'Ngày';
+        powerChart.update();
+      });
+    }
+
+    // === KHỞI TẠO BIỂU ĐỒ NHIỆT ĐỘ & ĐỘ ẨM ===
+    function initTempHumidityChart() {
+      const ctx = document.getElementById('tempHumidityChart').getContext('2d');
+      tempHumidityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'Nhiệt độ (°C)', data: [], borderColor: '#f56565', fill: false, tension: 0.3, pointRadius: 0 },
+            { label: 'Độ ẩm (%)', data: [], borderColor: '#3182ce', fill: false, tension: 0.3, pointRadius: 0 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: {
+            y: { beginAtZero: false },
+            x: {
+              display: true,
+              ticks: {
+                callback: function(value, index, values) {
+                  const mode = document.getElementById('tempViewMode').value;
+                  if (mode === '24hours' && values.length > 0 && index === Math.floor(values.length / 2)) return '24 giờ';
+                  if (mode === 'realtime') return value;
+                  return '';
+                }
+              }
+            }
+          },
+          animation: {
+            duration: 0
+          }
+        }
+      });
+
+      document.getElementById('tempViewMode').onchange = () => {
+        if (window.tempListener) window.tempListener();
+        loadTempHumidityChart();
+      };
+
+      loadTempHumidityChart();
+
+      window.addEventListener('beforeunload', () => {
+        if (window.tempListener) window.tempListener();
+      });
+    }
+
+    // === TẢI DỮ LIỆU NHIỆT ĐỘ & ĐỘ ẨM – REALTIME & 24 GIỜ ===
+    function loadTempHumidityChart() {
+      const mode = document.getElementById('tempViewMode').value;
+      const now = Date.now();
+      const cutoff = mode === 'realtime' ? now - (15 * 60 * 1000) : now - (24 * 60 * 60 * 1000);
+
+      // HỦY LISTENER CŨ (QUAN TRỌNG!)
+      if (window.tempListener) {
+        window.tempListener();
+        window.tempListener = null;
+      }
+
+      const query = db.ref('/history/sensors')
+        .orderByChild('timestamp')
+        .startAt(cutoff);
+
+      window.tempListener = query.on('value', (snapshot) => {
+        const entries = [];
+        snapshot.forEach(child => {
+          const val = child.val();
+          if (val.timestamp && val.temperature != null && val.humidity != null) {
+            entries.push({ t: val.timestamp, temp: val.temperature, hum: val.humidity });
+          }
+        });
+        entries.sort((a, b) => a.t - b.t);
+
+        let labels = [], tempData = [], humData = [];
+
+        if (mode === 'realtime') {
+          // 15 phút gần nhất
+          const recent = entries.slice(-15);
+          labels = recent.map(e => new Date(e.t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
+          tempData = recent.map(e => e.temp);
+          humData = recent.map(e => e.hum);
+        } else {
+          // 24 GIỜ: Chia thành 24 điểm (mỗi giờ 1 điểm)
+          const hourMap = new Map(); // key: "13/11 14h" → { minT, maxT, minH, maxH }
+
+          entries.forEach(e => {
+            const d = new Date(e.t);
+            const key = `${d.getDate()}/${d.getMonth() + 1} ${d.getHours()}h`;
+            if (!hourMap.has(key)) {
+              hourMap.set(key, { minT: e.temp, maxT: e.temp, minH: e.hum, maxH: e.hum });
+            } else {
+              const data = hourMap.get(key);
+              data.minT = Math.min(data.minT, e.temp);
+              data.maxT = Math.max(data.maxT, e.temp);
+              data.minH = Math.min(data.minH, e.hum);
+              data.maxH = Math.max(data.maxH, e.hum);
+            }
+          });
+
+          // Tạo 24 giờ gần nhất
+          const now = new Date();
+          for (let i = 23; i >= 0; i--) {
+            const d = new Date(now);
+            d.setHours(d.getHours() - i);
+            const key = `${d.getDate()}/${d.getMonth() + 1} ${d.getHours()}h`;
+            labels.push(`${d.getHours()}h`);
+
+            if (hourMap.has(key)) {
+              const { minT, maxT, minH, maxH } = hourMap.get(key);
+              const avgTemp = ((minT + maxT) / 2).toFixed(1);
+              const avgHum = ((minH + maxH) / 2).toFixed(1);
+              tempData.push(parseFloat(avgTemp));
+              humData.push(parseFloat(avgHum));
+            } else {
+              tempData.push(null);
+              humData.push(null);
+            }
+          }
+        }
+
+        // Cập nhật biểu đồ
+        tempHumidityChart.data.labels = labels;
+        tempHumidityChart.data.datasets[0].data = tempData;
+        tempHumidityChart.data.datasets[1].data = humData;
+
+        // Điểm chỉ hiện khi có dữ liệu
+        tempHumidityChart.data.datasets.forEach(ds => {
+          ds.pointRadius = mode === 'realtime' ? 4 : 5;
+          ds.pointHoverRadius = mode === 'realtime' ? 6 : 7;
+        });
+
+        // Tooltip & trục X
+        tempHumidityChart.options.plugins.tooltip.enabled = true;
+        tempHumidityChart.options.scales.x.title.text = mode === 'realtime' ? 'Thời gian' : 'Giờ';
+        tempHumidityChart.options.scales.x.ticks.callback = (value, index) => labels[index] || '';
+
+        tempHumidityChart.update('quiet');
+      }, (error) => {
+        console.error("Lỗi Firebase:", error);
+      });
+    }
+
+    // === G “Gửi ZIP đi” → tôi gửi ngay! ===
+    async function sendControl(topic, value) {
+      try {
+        const response = await fetch('/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, value })
+        });
+        if (!response.ok) throw new Error('MQTT offline');
+      } catch (err) {
+        console.error('Lỗi gửi lệnh:', err.message);
+        alert('Không thể điều khiển thiết bị. Kiểm tra server!');
+      }
+    }
+
+    // === GẮN SỰ KIỆN CHO SWITCH ===
+    function setupControlSwitches() {
+      const switches = document.querySelectorAll('.accessory-item .switch input');
+      const topics = ['home/control/pir', 'home/control/rain', 'home/control/clothes'];
+
+      switches.forEach((input, index) => {
+        input.addEventListener('change', function() {
+          const value = this.checked ? 'ON' : 'OFF';
+          sendControl(topics[index], value);
+        });
+
+        const deviceKey = ['pir', 'rain', 'clothes'][index];
+        db.ref(`/devices/${deviceKey}`).on('value', (snapshot) => {
+          const state = snapshot.val();
+          const isOn = (state === 'ON' || state === true);
+          
+          input.checked = isOn;
+          const item = input.closest('.accessory-item');
+          item.classList.toggle('on', isOn);
+          
+          const statusEl = item.querySelector('.status');
+          if (statusEl) {
+            const statusMap = {
+              pir: { ON: 'Phát hiện chuyển động', OFF: 'Không phát hiện' },
+              rain: { ON: 'Tự động thu khi mưa', OFF: 'Tắt chế độ tự động' },
+              clothes: { ON: 'Tự động thu giàn', OFF: 'Không thu giàn' }
+            };
+            statusEl.textContent = statusMap[deviceKey][isOn ? 'ON' : 'OFF'];
+          }
+        });
+      });
+    }
+
+    // === LOGIN & LOGOUT ===
+    function handleLogin() {
+      const user = document.getElementById('username').value.trim();
+      const pass = document.getElementById('password').value;
+      if (user === 'admin' && pass === '123') {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        setTimeout(setupControlSwitches, 500);
+        updateGaugeFromFirebase();
+        updatePowerDetails();
+        initPowerChart();
+        initTempHumidityChart();
+        initPowerStatus();
+      } else {
+        document.getElementById('errorMsg').style.display = 'block';
+      }
+    }
+
+    function handleLogout() {
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('dashboard').style.display = 'none';
+    }
+
+    // === KHỞI TẠO TRẠNG THÁI ĐIỆN TỪ LOG GẦN NHẤT ===
+    function initPowerStatus() {
+      db.ref('/logs').orderByKey().limitToLast(1).once('value', (snapshot) => {
+        let latestLog = null;
+        snapshot.forEach(child => {
+          latestLog = child.val();
+        });
+
+        if (latestLog && typeof latestLog === 'string') {
+          updatePowerStatus(latestLog);
+        }
+      });
+    }
+
+    // === CẬP NHẬT TRẠNG THÁI ĐIỆN ===
+    function updatePowerStatus(log) {
+      const powerItem = document.getElementById('powerStatusItem');
+      if (!powerItem) return;
+
+      if (log.includes('POWER OUTAGE')) {
+        powerItem.className = 'accessory-item power-off';
+        powerItem.querySelector('i').style.color = '#f56565';
+        powerItem.querySelector('.status').textContent = 'Mất điện';
+      } else if (log.includes('POWER RESTORED')) {
+        powerItem.className = 'accessory-item power-on';
+        powerItem.querySelector('i').style.color = '#48bb78';
+        powerItem.querySelector('.status').textContent = 'Có điện';
+      }
+    }
+
+    // === KHỞI ĐỘNG ===
+    window.onload = () => {
+      document.getElementById('acValue').classList.add('show');
+      document.getElementById('acLabel').classList.add('show');
+      setInterval(updateLiveStatus, 1000);
+
+      document.querySelectorAll('.ac-mode').forEach((btn, i) => {
+        btn.onclick = () => switchMode(i);
+      });
+    };
+
+    // === LẮNG NGHE REALTIME ===
+    db.ref('/sensors/temperature').on('value', (snapshot) => {
+      currentTemp = snapshot.val() || 0;
+      updateWeatherCard(currentTemp, isRaining);
+    });
+
+    db.ref('/logs').limitToLast(1).on('child_added', (snapshot) => {
+      const log = snapshot.val();
+      if (typeof log === 'string') {
+        if (log.includes('RAIN STARTED')) {
+          isRaining = true;
+          updateWeatherCard(currentTemp, isRaining);
+        } else if (log.includes('RAIN STOPPED')) {
+          isRaining = false;
+          updateWeatherCard(currentTemp, isRaining);
+        }
+        updatePowerStatus(log);
+      }
+    });
+
+    db.ref('/lastUpdate').on('value', (snapshot) => {
+      const timestamp = snapshot.val();
+      if (timestamp) {
+        lastDataTime = timestamp;
+        updateLiveStatus();
+      }
+    });
+
+    db.ref('/sensors').on('value', () => {
+      updateGaugeFromFirebase();
+      updatePowerDetails();
+    });
+  </script>
+</body>
+</html>
